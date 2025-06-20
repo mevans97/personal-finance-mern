@@ -1,48 +1,69 @@
+/**
+ * File: DashboardScreen.js
+ * -------------------------
+ * This is the main dashboard component of the personal finance mobile app.
+ * It provides a multi-tabbed interface for managing and visualizing user budgets
+ * and monthly expenses. The screen includes the following core features:
+ * 
+ * - "View Budget" tab: Displays total spending and a pie chart breakdown of budgeted categories.
+ * - "Manage Budget" tab: Allows users to add, edit, and delete budget items with category selection.
+ * - "Track Spending" tab: Lists all user-recorded expenses in reverse chronological order.
+ * - "Manage Spending" tab: Enables users to create, view, and delete individual expenses.
+ * 
+ * The component also performs secure API calls using JWTs stored in AsyncStorage to
+ * fetch and persist user data via a Node.js + MongoDB backend.
+ * 
+ * Charts are rendered using the `react-native-chart-kit` package, and dropdowns
+ * are provided via `@react-native-picker/picker`. Form inputs are controlled using
+ * React state, and the UI is styled with React Native's StyleSheet API.
+ */
+
 // === 📦 Imports ===
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; // Import core React hooks
 import {
   View, Text, FlatList, Button, Alert, StyleSheet,
   Modal, TextInput, TouchableOpacity, ScrollView, Dimensions
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { PieChart } from 'react-native-chart-kit';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+} from 'react-native'; // Import common UI components from React Native
+import { Picker } from '@react-native-picker/picker'; // Dropdown selector
+import { PieChart } from 'react-native-chart-kit'; // Library to render pie charts
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Local storage for authentication tokens
+import axios from 'axios'; // HTTP client for API requests
 
 // === 🧠 Main Component ===
 export default function DashboardScreen() {
   // === 📊 State Variables ===
-  const [items, setItems] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('view');
+  const [items, setItems] = useState([]); // Stores budget items
+  const [expenses, setExpenses] = useState([]); // Stores expense records
+  const [loading, setLoading] = useState(true); // Whether data is loading
+  const [activeTab, setActiveTab] = useState('view'); // Active tab indicator
 
-  // 🛠️ Budget Item Form States
+  // === 💬 New Budget Item Form State ===
   const [newName, setNewName] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newCategory, setNewCategory] = useState('');
 
-  // 🛠️ Edit Modal States
+  // === 📝 Edit Budget Item Modal State ===
   const [modalVisible, setModalVisible] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [editName, setEditName] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
 
-  // 🛠️ Expense Form States
+  // === 💸 Expense Form State ===
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseCategory, setExpenseCategory] = useState('');
   const [expenseNote, setExpenseNote] = useState('');
 
+  // Get screen width for responsive chart rendering
   const screenWidth = Dimensions.get('window').width;
 
-  // === 🔄 Fetch Data on Load ===
+  // === 🔄 Load budget and expenses when component mounts ===
   useEffect(() => {
-    fetchBudget();
-    fetchExpenses();
+    fetchBudget();     // Load user's budget items
+    fetchExpenses();   // Load user's expenses
   }, []);
 
-  // === 🌐 API Calls ===
+  // === 📡 API: Fetch Budget Items ===
   const fetchBudget = async () => {
     try {
       setLoading(true);
@@ -62,6 +83,7 @@ export default function DashboardScreen() {
     }
   };
 
+  // === 📡 API: Fetch Expense Records ===
   const fetchExpenses = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -74,6 +96,7 @@ export default function DashboardScreen() {
     }
   };
 
+  // === 📡 API: Add Budget Item ===
   const addItem = async () => {
     if (!newName || !newAmount || !newCategory) {
       Alert.alert('All fields are required');
@@ -86,13 +109,18 @@ export default function DashboardScreen() {
         amount: parseFloat(newAmount),
         category: newCategory
       }, { headers: { Authorization: token } });
-      setNewName(''); setNewAmount(''); setNewCategory('');
+
+      // Clear input and refresh
+      setNewName('');
+      setNewAmount('');
+      setNewCategory('');
       fetchBudget();
     } catch (err) {
       Alert.alert('Error adding item');
     }
   };
 
+  // === ✏️ Open modal to edit item ===
   const handleEdit = (item) => {
     setEditItem(item);
     setEditName(item.name);
@@ -101,6 +129,7 @@ export default function DashboardScreen() {
     setModalVisible(true);
   };
 
+  // === 📡 API: Save Edited Item ===
   const saveChanges = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -116,6 +145,7 @@ export default function DashboardScreen() {
     }
   };
 
+  // === 📡 API: Delete Budget Item ===
   const handleDelete = async (itemId) => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -128,6 +158,7 @@ export default function DashboardScreen() {
     }
   };
 
+  // === 📡 API: Add New Expense ===
   const addExpense = async () => {
     if (!expenseAmount || !expenseCategory) {
       Alert.alert('Amount and Category required');
@@ -140,13 +171,17 @@ export default function DashboardScreen() {
         category: expenseCategory,
         note: expenseNote
       }, { headers: { Authorization: token } });
-      setExpenseAmount(''); setExpenseCategory(''); setExpenseNote('');
+
+      setExpenseAmount('');
+      setExpenseCategory('');
+      setExpenseNote('');
       fetchExpenses();
     } catch (err) {
       Alert.alert('Error saving expense');
     }
   };
 
+  // === 📡 API: Delete Expense ===
   const deleteExpense = async (id) => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -159,27 +194,28 @@ export default function DashboardScreen() {
     }
   };
 
-  // === 🧮 Calculations ===
+  // === 📊 Calculate Spending Totals ===
   const totalSpending = items.reduce((sum, item) => sum + item.amount, 0);
   const categoryTotals = items.reduce((acc, item) => {
     acc[item.category] = (acc[item.category] || 0) + item.amount;
     return acc;
   }, {});
-  const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-  const chartKitData = Object.entries(categoryTotals).map(([cat, val], i) => ({
-    name: cat,
-    population: val,
-    color: colors[i % colors.length],
+
+  // Prepare pie chart data
+  const chartKitData = Object.entries(categoryTotals).map(([category, amount], index) => ({
+    name: category,
+    population: amount,
+    color: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'][index % 5],
     legendFontColor: '#333',
     legendFontSize: 12
   }));
 
-  // === 🧱 UI ===
+  // === 🧱 UI Rendering ===
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Your Budget</Text>
 
-      {/* Tabs */}
+      {/* === 🔘 Tab Selection === */}
       <View style={styles.tabContainer}>
         {['view', 'manage', 'trackSpending', 'manageSpending'].map((tab) => (
           <TouchableOpacity
@@ -196,9 +232,10 @@ export default function DashboardScreen() {
         ))}
       </View>
 
-      {/* Tab Views */}
+      {/* === 🔄 Tab Views === */}
       {loading ? <Text>Loading...</Text> : (
         <>
+          {/* 📊 View Budget Tab */}
           {activeTab === 'view' && (
             <>
               <Text style={styles.totalSpending}>Total: ${totalSpending.toFixed(2)}</Text>
@@ -225,6 +262,7 @@ export default function DashboardScreen() {
             </>
           )}
 
+          {/* ✍️ Manage Budget Tab */}
           {activeTab === 'manage' && (
             <>
               <TextInput style={styles.input} placeholder="Name" value={newName} onChangeText={setNewName} />
@@ -248,6 +286,7 @@ export default function DashboardScreen() {
             </>
           )}
 
+          {/* 📆 Track Spending Tab */}
           {activeTab === 'trackSpending' && (
             <>
               <Text style={styles.sectionTitle}>Spending History</Text>
@@ -261,6 +300,7 @@ export default function DashboardScreen() {
             </>
           )}
 
+          {/* 🧾 Manage Spending Tab */}
           {activeTab === 'manageSpending' && (
             <>
               <TextInput style={styles.input} placeholder="Amount" value={expenseAmount} onChangeText={setExpenseAmount} keyboardType="numeric" />
@@ -274,7 +314,6 @@ export default function DashboardScreen() {
               </Picker>
               <TextInput style={styles.input} placeholder="Note (optional)" value={expenseNote} onChangeText={setExpenseNote} />
               <Button title="Save Expense" onPress={addExpense} />
-
               {expenses.map(item => (
                 <View key={item._id} style={styles.itemBox}>
                   <Text>{item.category} - ${item.amount}</Text>

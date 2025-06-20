@@ -1,70 +1,86 @@
-// routes/expenses.js
+/**
+ * Route File: expenses.js
+ * -----------------------
+ * This file handles all routes related to expense management for authenticated users.
+ * It allows users to:
+ * - View all their recorded expenses
+ * - Create new expenses
+ * - Update specific expenses
+ * - Delete specific expenses
+ * 
+ * All routes are protected using JWT-based authentication middleware (`auth`).
+ */
 
 const express = require('express');
 const router = express.Router();
-const Expense = require('../models/Expense');
-const auth = require('../middleware/auth');
 
-// GET all expenses for the logged-in user
+const Expense = require('../models/Expense');  // Mongoose model for expenses
+const auth = require('../middleware/auth');    // JWT authentication middleware
+
+// Route: GET /api/expenses
+// Purpose: Retrieve all expenses for the logged-in user, sorted by newest first
 router.get('/', auth, async (req, res) => {
   try {
-    const expenses = await Expense.find({ user: req.user.id }).sort({ date: -1 });
-    res.json(expenses);
+    const expenses = await Expense.find({ user: req.user.id }).sort({ date: -1 });  // Sort by date descending
+    res.json(expenses);  // Return array of user's expenses
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });  // Handle database/server errors
   }
 });
 
-// POST create a new expense
+// Route: POST /api/expenses
+// Purpose: Create a new expense entry
 router.post('/', auth, async (req, res) => {
   const { amount, category, note, date } = req.body;
 
   try {
     const expense = new Expense({
-      user: req.user.id,
+      user: req.user.id,  // Link expense to the authenticated user
       amount,
       category,
       note,
       date
     });
 
-    const saved = await expense.save();
-    res.json(saved);
+    const saved = await expense.save();  // Save to database
+    res.json(saved);  // Return saved document
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// PUT update an expense
+// Route: PUT /api/expenses/:id
+// Purpose: Update an existing expense by ID
 router.put('/:id', auth, async (req, res) => {
   const { amount, category, note, date } = req.body;
 
   try {
     const updated = await Expense.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.id },
-      { amount, category, note, date },
-      { new: true }
+      { _id: req.params.id, user: req.user.id },  // Find by ID and verify ownership
+      { amount, category, note, date },            // Fields to update
+      { new: true }                                // Return the updated document
     );
 
-    if (!updated) return res.status(404).json({ message: 'Expense not found' });
+    if (!updated) return res.status(404).json({ message: 'Expense not found' });  // If no matching expense
 
-    res.json(updated);
+    res.json(updated);  // Return updated expense
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// DELETE an expense
+// Route: DELETE /api/expenses/:id
+// Purpose: Delete an expense by ID
 router.delete('/:id', auth, async (req, res) => {
   try {
     const deleted = await Expense.findOneAndDelete({
       _id: req.params.id,
-      user: req.user.id
+      user: req.user.id  // Make sure expense belongs to the logged-in user
     });
 
     if (!deleted) return res.status(404).json({ message: 'Expense not found' });
 
-    res.json({ message: 'Expense deleted' });
+    res.json({ message: 'Expense deleted' });  // Confirm deletion
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
